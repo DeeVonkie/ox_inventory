@@ -1,3 +1,5 @@
+if not lib then return end
+
 local Items = server.items
 local Inventory = server.inventory
 
@@ -16,7 +18,8 @@ for shopName, shopDetails in pairs(data('shops')) do
 				items = table.clone(shopDetails.inventory),
 				slots = #shopDetails.inventory,
 				type = 'shop',
-				coords = shared.qtarget and shopDetails[locations][i].loc or shopDetails[locations][i]
+				coords = shared.qtarget and shopDetails[locations][i].loc or shopDetails[locations][i],
+				distance = shared.qtarget and shopDetails[locations][i].distance + 1 or nil,
 			}
 			for j = 1, Shops[shopName][i].slots do
 				local slot = Shops[shopName][i].items[j]
@@ -27,7 +30,7 @@ for shopName, shopDetails in pairs(data('shops')) do
 						slot = j,
 						weight = Item.weight,
 						count = slot.count,
-						price = server.randomprices and (math.ceil(slot.price * (math.random(80, 120)/100))) or slot.price,
+						price = (server.randomprices and not currency or currency == 'money') and (math.ceil(slot.price * (math.random(80, 120)/100))) or slot.price,
 						metadata = slot.metadata,
 						license = slot.license,
 						currency = slot.currency,
@@ -55,7 +58,7 @@ for shopName, shopDetails in pairs(data('shops')) do
 					slot = i,
 					weight = Item.weight,
 					count = slot.count,
-					price = server.randomprices and (math.ceil(slot.price * (math.random(90, 110)/100))) or slot.price,
+					price = (server.randomprices and not currency or currency == 'money') and (math.ceil(slot.price * (math.random(90, 110)/100))) or slot.price,
 					metadata = slot.metadata,
 					license = slot.license,
 					currency = slot.currency,
@@ -109,18 +112,18 @@ lib.callback.register('ox_inventory:buyItem', function(source, data)
 		if fromData then
 			if fromData.count then
 				if fromData.count == 0 then
-					return false, false, {type = 'error', text = shared.locale('shop_nostock')}
+					return false, false, { type = 'error', description = shared.locale('shop_nostock') }
 				elseif data.count > fromData.count then
 					data.count = fromData.count
 				end
 
 			elseif fromData.license and shared.framework == 'esx' and not MySQL:selectLicense(fromData.license, playerInv.owner) then
-				return false, false, {type = 'error', text = shared.locale('item_unlicensed')}
+				return false, false, { type = 'error', description = shared.locale('item_unlicensed') }
 
 			elseif fromData.grade then
 				local _, rank = server.hasGroup(playerInv, shop.groups)
 				if fromData.grade > rank then
-					return false, false, {type = 'error', text = shared.locale('stash_lowgrade')}
+					return false, false, { type = 'error', description = shared.locale('stash_lowgrade') }
 				end
 			end
 
@@ -135,11 +138,11 @@ lib.callback.register('ox_inventory:buyItem', function(source, data)
 			local price = count * fromData.price
 
 			if toData == nil or (fromItem.name == toItem.name and fromItem.stack and table.matches(toData.metadata, metadata)) then
-				local canAfford = Inventory.GetItem(source, currency, false, true) >= price
+				local canAfford = price >= 0 and Inventory.GetItem(source, currency, false, true) >= price
 				if canAfford then
 					local newWeight = playerInv.weight + (fromItem.weight + (metadata?.weight or 0)) * count
 					if newWeight > playerInv.maxWeight then
-						return false, false, {type = 'error', text = shared.locale('cannot_carry')}
+						return false, false, { type = 'error', description = shared.locale('cannot_carry') }
 					else
 						Inventory.SetSlot(playerInv, fromItem, count, metadata, data.toSlot)
 						if fromData.count then shop.items[data.fromSlot].count = fromData.count - count end
@@ -159,12 +162,12 @@ lib.callback.register('ox_inventory:buyItem', function(source, data)
 
 					end
 
-					return true, {data.toSlot, playerInv.items[data.toSlot], playerInv.weight}, {type = 'success', text = message}
+					return true, {data.toSlot, playerInv.items[data.toSlot], playerInv.weight}, { type = 'success', description = message }
 				else
-					return false, false, {type = 'error', text = shared.locale('cannot_afford', ('%s%s'):format((currency == 'money' and shared.locale('$') or comma_value(price)), (currency == 'money' and comma_value(price) or ' '..Items(currency).label)))}
+					return false, false, { type = 'error', description = shared.locale('cannot_afford', ('%s%s'):format((currency == 'money' and shared.locale('$') or comma_value(price)), (currency == 'money' and comma_value(price) or ' '..Items(currency).label))) }
 				end
 			end
-			return false, false, {type = 'error', text = shared.locale('unable_stack_items')}
+			return false, false, { type = 'error', description = shared.locale('unable_stack_items') }
 		end
 	end
 end)

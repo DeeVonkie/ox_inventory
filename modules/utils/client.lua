@@ -20,8 +20,8 @@ end
 
 function Utils.Raycast(flag)
 	local playerCoords = GetEntityCoords(cache.ped)
-	local plyOffset = GetOffsetFromEntityInWorldCoords(cache.ped, 0.0, 2.2, -0.05)
-	local rayHandle = StartShapeTestCapsule(playerCoords.x, playerCoords.y, playerCoords.z, plyOffset.x, plyOffset.y, plyOffset.z, 2.2, flag or 30, cache.ped)
+	local plyOffset = GetOffsetFromEntityInWorldCoords(cache.ped, 0.0, 2.2, -0.25)
+	local rayHandle = StartShapeTestCapsule(playerCoords.x, playerCoords.y, playerCoords.z + 0.5, plyOffset.x, plyOffset.y, plyOffset.z, 2.2, flag or 30, cache.ped)
 	while true do
 		Wait(0)
 		local result, _, _, _, entityHit = GetShapeTestResult(rayHandle)
@@ -37,25 +37,39 @@ function Utils.Raycast(flag)
 end
 
 function Utils.GetClosestPlayer()
-	local closestPlayer, playerId, playerCoords = vec3(10, 0, 0), PlayerId(), GetEntityCoords(cache.ped)
-	local coords
-	for k, player in pairs(GetActivePlayers()) do
-		if player ~= playerId then
+	local players = GetActivePlayers()
+	local playerCoords = GetEntityCoords(cache.ped)
+	local targetDistance, targetId, targetPed
+
+	for i = 1, #players do
+		local player = players[i]
+
+		if player ~= cache.playerId then
 			local ped = GetPlayerPed(player)
-			coords = GetEntityCoords(ped)
-			local distance = #(playerCoords - coords)
-			if distance < closestPlayer.x then
-				closestPlayer = vec3(distance, player, ped)
+			local distance = #(playerCoords - GetEntityCoords(ped))
+
+			if distance < (targetDistance or 2) then
+				targetDistance = distance
+				targetId = player
+				targetPed = ped
 			end
 		end
 	end
-	return closestPlayer, coords
+
+	return targetId, targetPed
 end
 
-function Utils.Notify(data) SendNUIMessage({ action = 'showNotif', data = data }) end
-function Utils.ItemNotify(data) SendNUIMessage({action = 'itemNotify', data = data}) end
+-- Replace ox_inventory notify with ox_lib (backwards compatibility)
+function Utils.Notify(data)
+	data.description = data.text
+	data.text = nil
+	lib.notify(data)
+end
+
 RegisterNetEvent('ox_inventory:notify', Utils.Notify)
 exports('notify', Utils.Notify)
+
+function Utils.ItemNotify(data) SendNUIMessage({action = 'itemNotify', data = data}) end
 
 function Utils.Disarm(currentWeapon, newSlot)
 	SetWeaponsNoAutoswap(1)
@@ -71,7 +85,7 @@ function Utils.Disarm(currentWeapon, newSlot)
 			ClearPedSecondaryTask(cache.ped)
 			local sleep = (client.hasGroup(shared.police) and (GetWeapontypeGroup(currentWeapon.hash) == 416676503 or GetWeapontypeGroup(currentWeapon.hash) == 690389602)) and 450 or 1400
 			local coords = GetEntityCoords(cache.ped, true)
-			if currentWeapon.name == 'WEAPON_SWITCHBLADE' then
+			if currentWeapon.hash == `WEAPON_SWITCHBLADE` then
 				Utils.PlayAnimAdvanced(sleep, 'anim@melee@switchblade@holster', 'holster', coords.x, coords.y, coords.z, 0, 0, GetEntityHeading(cache.ped), 8.0, 3.0, -1, 48, 0)
 				Wait(600)
 			else
@@ -110,6 +124,8 @@ end
 -- Enables the weapon wheel, but disables the use of inventory items
 -- Mostly used for weaponised vehicles, though could be called for "minigames"
 function Utils.WeaponWheel(state)
+	if state == nil then state = client.weaponWheel end
+
 	client.weaponWheel = state
 	SetWeaponsNoAutoswap(not state)
 	SetWeaponsNoAutoreload(not state)

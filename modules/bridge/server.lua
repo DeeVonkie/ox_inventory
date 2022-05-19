@@ -20,6 +20,7 @@ function server.setPlayerData(player)
 	end
 
 	return {
+		source = player.source,
 		name = player.name,
 		groups = player.groups or {},
 		sex = player.sex,
@@ -31,7 +32,7 @@ if shared.framework == 'esx' then
 	local ESX = exports['es_extended']:getSharedObject()
 
 	if ESX.CreatePickup then
-		error('Ox Inventory requires a modified version of ESX, refer to the documentation.')
+		error('ox_inventory requires a ESX Legacy v1.6.0 or above, refer to the documentation.')
 	end
 
 	ESX = {
@@ -56,6 +57,7 @@ if shared.framework == 'esx' then
 		}
 
 		return {
+			source = player.source,
 			name = player.name,
 			groups = groups,
 			sex = player.sex or player.variables.sex,
